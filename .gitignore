@@ -186,3 +186,8 @@ browser_data/
 # Backup files
 *.bak
 *.backup
+
+# Тесты и отчеты
+
+report.html
+*.log

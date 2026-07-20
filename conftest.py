@@ -1,54 +1,50 @@
 import os
 import pytest
-import allure
-from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from dotenv import load_dotenv
 
+# Загружаем секреты из файла .env
 load_dotenv()
 
-@pytest.fixture(scope="function")
+
+@pytest.fixture(scope="session")
 def driver():
-    options = Options()
-    # options.add_argument("--headless=new") # Раскомментируй для безголового режима
-    options.add_argument("--window-size=1920,1080")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--disable-notifications")
-    
-    driver = webdriver.Chrome(options=options)
-    driver.implicitly_wait(5)
-    yield driver
-    driver.quit()
+    """Настраивает и запускает браузер Chrome."""
+    chrome_options = Options()
 
-# --- Хуки для Allure ---
+    # закомментируйте строку ниже знаком #. Иначе тесты будут работать в невидимом режиме.
+    # chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--window-size=1920,1080")
 
-@pytest.hookimpl(tryfirst=True, hookwrapper=True)
-def pytest_runtest_makereport(item, call):
-    """
-    Автоматически прикрепляет скриншот к отчету Allure, если тест завершился с ошибкой (failed).
-    """
-    outcome = yield
-    rep = outcome.get_result()
-    
-    # Проверяем, что это фаза вызова (call) и тест упал
-    if rep.when == "call" and rep.failed:
-        # Получаем экземпляр драйвера из фикстур теста
-        if "driver" in item.fixturenames:
-            driver = item.funcargs["driver"]
-            try:
-                screenshot = driver.get_screenshot_as_png()
-                allure.attach(
-                    screenshot,
-                    name="Скриншот при падении теста",
-                    attachment_type=allure.attachment_type.PNG
-                )
-            except Exception as e:
-                print(f"Не удалось сделать скриншот: {e}")
+    # 🆕 Добавляем настройки для автоматического принятия cookies и блокировки всплывающих окон
+    prefs = {
+        "profile.default_content_setting_values.cookies": 1,  # 1 = Разрешить cookies
+        "profile.default_content_setting_values.notifications": 2,  # 2 = Блокировать уведомления
+        "profile.default_content_setting_values.popups": 2,  # 2 = Блокировать всплывающие окна
+    }
+    chrome_options.add_experimental_option("prefs", prefs)
 
-def pytest_sessionstart(session):
-    """
-    Добавляет информацию об окружении в начало отчета Allure.
-    """
-    allure.environment(browser="Google Chrome")
-    allure.environment(python_version=os.sys.version.split()[0])
-    allure.environment(test_env="Linux.Org.Ru Staging/Prod")
+    driver = webdriver.Chrome(options=chrome_options)
+    driver.implicitly_wait(5)  # Неявное ожидание элементов до 5 секунд
+
+    yield driver  # Передаем драйвер в тесты
+
+    driver.quit()  # Закрываем браузер после завершения всех тестов
+
+
+@pytest.fixture(scope="session")
+def base_url():
+    return os.getenv("BASE_URL", "https://100-dreley.ru/")
+
+
+@pytest.fixture(scope="session")
+def valid_username():
+    return os.getenv("VALID_USERNAME", "test_user")
+
+
+@pytest.fixture(scope="session")
+def valid_password():
+    return os.getenv("VALID_PASSWORD", "test_password")
